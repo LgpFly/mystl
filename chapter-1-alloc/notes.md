@@ -54,13 +54,72 @@ classDiagram
         -static _obj* _s_free_list[16] "长度为16的空闲链表"
         -static char* _s_start_free "记忆池起始位置"
         -static char* _s_end_free "记忆池的结束位置，只在chunk_alloc 变化"
-        -static szie_t _s_heap_size 
+        -static szie_t _s_heap_size "累计总量"
         
-
-
+        -static size_t ROUND_UP(size_t bytes) "将申请的字节书调制8的倍数"
+        -static size_t FREELIST_INDEX(size_t bytes) "根据字节数找到数组下表"
+        -static void* refill(size_t n) "返回一个大小为n的区块，可能加入大小为n的其他区块到free list 中"
+        -static char* chunk_alloc(size_t size, int &nodejs) "返回nodejs个大小为size的区块"
+        
+        +static void* allocate(size_t n) "统一调用"
+        +static void deallocate(void* p, size_t n) 
+        +static void* reallocate(void* p, size_t old_size, size_t new_size)
     }
-    
-
 ```
+类中静态成员变量要在类之后立马初始化
 
+1. allocate 函数 
+   
+   申请空间
+```mermaid
+   graph TD
+    A[allocate args：n] --> B{是否大于128}
+    B -- 是 --> C[执行一级配置器进行malloc]
+    B -- 否 --> D{根据n找到空闲列表的对应下表，判断是否有空间}
+    D -- 是 --> E[返回空间地址]
+    D -- 否 --> F[调用refill函数，并返回地址]
+    E --> G[结束]
+    F --> G[结束]
+```
+2. deallocate 函数
+
+   释放空间
+   ```mermaid
+   graph TD
+   A[deallocate args：p n] --> B{是否大于128}
+    B -- 是 --> C[执行一级配置器进行deallocate]
+    B -- 否 --> D[根据n找到空闲列表的对应下表,将空间放到空闲链表的第一个]
+    C --> E[结束]
+    D --> E
+   ```
+3. refill 函数
+   
+   重新填充free_list
+
+   ``` mermaid
+   graph TD
+   A[refill args：n] --> B[通过chunk_alloc申请20*n的空间]
+    B  --> C{判定返回值是1}
+    C -- 是 --> D[直接返回chunk_alloc返回的地址]
+    C -- 否 --> E[将第一块返回出去，剩下的加入到剩余列表中]
+    D --> F[结束]
+    E --> F
+   ```
+4. chunk_alloc
+   
+   从内存池中取空间给free list
+
+   ```mermaid
+   graph TD
+   A[chunk_alloc args：size nodejs] --> B{判断需要的总空间size*nodejs和剩余空间end-start}
+   B -- 余>总 --> C[返回start地址，并修改start]
+   B -- 余>=size --> D[计算一共能返回多少个，把所有的都返回]
+   B -- 余小于size --> E[将剩下的都分配进去，分配剩余空间到相应的链表]
+   E --> F{malloc空间，判断是否失败}
+   F --是--> G[巡视free list中比目标大的空间，拿出一个来，return递归的调用自己，<br>到这就直接返回了会。否则调用一级配置的allocate函数，里面有检查错误的，<br>直接抛出异常]
+   F --否--> H[malloc分配内存后，递归调用自己]
+   C --> L[结束]
+   D --> L
+   G --> L
+   H --> L
 
