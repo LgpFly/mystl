@@ -123,3 +123,39 @@ classDiagram
    G --> L
    H --> L
 
+### 内存基本处理工具
+
+
+* template <class InputIterator, class ForwardIterator>
+   ForwardIterator
+   uninitialized_copy(InputIterator firstr, InputIterator last, ForwardIterator result);
+
+   函数作用：将[first,last)之间的内容，拷贝到result开始的地方
+
+   ```mermaid
+   graph TD
+   A[uninitialized_copy<br>args:first,last,result] --> B[_uninitialized_copy<br>args:first,last,result,value_type]
+   B --> C{__uninitialized_copy_aux<br>args:first,last, result, _Is_POD<br>判断是否是POD}
+   C --是--> D[直接copy]
+   C --否--> E[以此执行构造函数]
+   D --> F[结束]
+   E --> F
+   ```
+
+
+* template <class ForwardIterator, class Size, class T>
+   ForwardIterator
+   uninitialized_fill_n(ForwardIterator first, size n, const T& x);
+
+   函数作用：将从first开始的n个位置初始化为x，与上面相同，IS_POD 直接fill_n(也就是copy)，否则依次调用初始化函数construct。
+
+
+* template <class ForwardIterator, class T>
+   ForwardIterator
+   uninitialized_fill(ForwardIterator first, ForwardIterator last, const T& x);
+
+   函数作用：将[first,last)初始化为x，与上面相同，IS_POD 直接copy，否则依次调用初始化函数construct。
+
+
+
+
